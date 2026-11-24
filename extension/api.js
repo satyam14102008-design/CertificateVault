@@ -1,5 +1,5 @@
-export const DEFAULT_API_BASE_URL = 'http://localhost:8000';
-export const DEFAULT_FRONTEND_URL = 'http://localhost:5173';
+export const DEFAULT_API_BASE_URL = 'https://certificatevault.onrender.com';
+export const DEFAULT_FRONTEND_URL = 'https://frontend-beta-six-xstx59looo.vercel.app';
 
 const STORAGE_KEYS = {
   TOKEN: 'cv_ext_token',
