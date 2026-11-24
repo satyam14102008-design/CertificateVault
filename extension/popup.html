@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CertificateVault</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="brand">
+          <img src="icons/icon48.png" alt="CertificateVault" class="brand-logo" />
+          <div>
+            <h1 class="brand-title">CertificateVault</h1>
+            <p class="brand-tagline">One place for every achievement.</p>
+          </div>
+        </div>
+        <div id="auth-pill" class="auth-pill auth-pill-offline">Checking...</div>
+      </header>
+
+      <div id="feedback-banner" class="banner hidden" role="alert"></div>
+
+      <!-- Unauthenticated View -->
+      <section id="login-view" class="panel hidden">
+        <h2 class="panel-title">Sign in to My Vault</h2>
+        <p class="panel-subtitle">
+          Authenticate with your owner account. Only your session token is saved locally.
+        </p>
+
+        <form id="login-form" class="form">
+          <label class="field">
+            <span>Owner email</span>
+            <input id="login-email" type="email" required autocomplete="email" placeholder="you@example.com" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="login-password" type="password" required autocomplete="current-password" placeholder="Enter vault password" />
+          </label>
+          <button id="login-submit" type="submit" class="btn btn-primary">Sign In</button>
+        </form>
+
+        <div class="divider"><span>or</span></div>
+
+        <button id="open-webapp-login" type="button" class="btn btn-secondary">
+          Open CertificateVault Login Page
+        </button>
+      </section>
+
+      <!-- Authenticated Save Form -->
+      <section id="save-view" class="panel hidden">
+        <div class="session-bar">
+          <span id="session-email" class="session-email"></span>
+          <div class="session-actions">
+            <button id="open-dashboard-btn" type="button" class="link-btn">Open Vault</button>
+            <button id="logout-btn" type="button" class="link-btn link-danger">Log out</button>
+          </div>
+        </div>
+
+        <form id="save-form" class="form" novalidate>
+          <label class="field">
+            <span>Certificate title <em class="req">*</em></span>
+            <input id="cert-title" type="text" maxlength="160" required placeholder="e.g. Python Specialization" />
+          </label>
+
+          <label class="field">
+            <span>Current page / verification URL</span>
+            <div class="url-row">
+              <input id="cert-url" type="url" placeholder="https://..." />
+              <button id="clear-url-btn" type="button" class="icon-clear" title="Clear URL" aria-label="Clear URL">×</button>
+            </div>
+          </label>
+
+          <div class="row-2">
+            <label class="field">
+              <span>Issuing organization</span>
+              <input id="cert-issuer" type="text" maxlength="120" placeholder="Optional" />
+            </label>
+            <label class="field">
+              <span>Category</span>
+              <select id="cert-category">
+                <option value="Courses">Courses</option>
+                <option value="Internships">Internships</option>
+                <option value="Hackathons">Hackathons</option>
+                <option value="Workshops">Workshops</option>
+                <option value="Academic">Academic</option>
+                <option value="Competitions">Competitions</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="row-2">
+            <label class="field">
+              <span>Issue date</span>
+              <input id="cert-date" type="date" />
+            </label>
+            <label class="field">
+              <span>Local file (PDF/PNG/JPG)</span>
+              <input id="cert-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" />
+            </label>
+          </div>
+
+          <div id="file-chip" class="file-chip hidden">
+            <span id="file-chip-name" class="file-chip-name"></span>
+            <button id="clear-file-btn" type="button" class="link-btn link-danger">Remove</button>
+          </div>
+
+          <label class="field">
+            <span>Description (optional)</span>
+            <textarea id="cert-description" rows="2" maxlength="1000" placeholder="Optional notes or credential ID..."></textarea>
+          </label>
+
+          <button id="save-submit" type="submit" class="btn btn-primary">Save Certificate</button>
+        </form>
+      </section>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
