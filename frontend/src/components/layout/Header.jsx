@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Lock, Menu, Plus } from 'lucide-react';
+import { Eye, Lock, LogIn, Menu, Plus } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import { useCertificates } from '../../hooks/useCertificates';
 import { SearchBar } from '../SearchBar';
 import { Button } from '../ui/Button';
 
 export function Header({ onOpenMobileNav }) {
+  const { isAuthenticated } = useAuth();
   const { certificates, globalSearch, setGlobalSearch, openAddModal } = useCertificates();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,12 +47,18 @@ export function Header({ onOpenMobileNav }) {
 
           <div className="hidden xl:flex items-center gap-2.5 min-w-0">
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-control bg-blue-50 text-brand-blue shrink-0">
-              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+              {isAuthenticated ? (
+                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : (
+                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+              )}
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink-primary truncate">My Vault</p>
+              <p className="text-sm font-semibold text-ink-primary truncate">
+                {isAuthenticated ? 'My Vault' : 'Certificate Portfolio'}
+              </p>
               <p className="text-xs text-ink-muted truncate">
-                {certificates.length} {certificates.length === 1 ? 'certificate' : 'certificates'} stored
+                {certificates.length} {certificates.length === 1 ? 'certificate' : 'certificates'}
               </p>
             </div>
           </div>
@@ -101,16 +109,27 @@ export function Header({ onOpenMobileNav }) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="primary"
-            size="md"
-            onClick={openAddModal}
-            aria-label="Add Certificate"
-            className="px-3 sm:px-4"
-          >
-            <Plus className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">Add Certificate</span>
-          </Button>
+          {isAuthenticated ? (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={openAddModal}
+              aria-label="Add Certificate"
+              className="px-3 sm:px-4"
+            >
+              <Plus className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Add Certificate</span>
+            </Button>
+          ) : (
+            <Link
+              to="/login"
+              state={{ from: location }}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-control text-sm font-medium bg-surface border border-border text-ink-primary hover:bg-slate-50 shadow-card min-h-[44px] sm:min-h-[38px]"
+            >
+              <LogIn className="w-4 h-4 shrink-0 text-brand-blue" aria-hidden="true" />
+              <span className="hidden sm:inline">Owner Sign In</span>
+            </Link>
+          )}
         </div>
       </div>
     </header>

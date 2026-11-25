@@ -33,26 +33,19 @@ function RouteLoadingFallback() {
   );
 }
 
-function ProtectedLayout() {
+function OwnerOnly({ children }) {
   const { isAuthenticated, initializing } = useAuth();
   const location = useLocation();
 
   if (initializing) {
-    return (
-      <div className="min-h-screen bg-app flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-3">
-          <Skeleton className="h-8 w-48 mx-auto" />
-          <Skeleton className="h-4 w-64 mx-auto" />
-        </div>
-      </div>
-    );
+    return <RouteLoadingFallback />;
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <AppLayout />;
+  return children;
 }
 
 export default function App() {
@@ -71,7 +64,7 @@ export default function App() {
                 }
               />
 
-              <Route element={<ProtectedLayout />}>
+              <Route element={<AppLayout />}>
                 <Route
                   index
                   element={
@@ -115,9 +108,11 @@ export default function App() {
                 <Route
                   path="settings"
                   element={
-                    <Suspense fallback={<RouteLoadingFallback />}>
-                      <Settings />
-                    </Suspense>
+                    <OwnerOnly>
+                      <Suspense fallback={<RouteLoadingFallback />}>
+                        <Settings />
+                      </Suspense>
+                    </OwnerOnly>
                   }
                 />
                 <Route

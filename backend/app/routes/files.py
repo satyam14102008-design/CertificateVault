@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from pymongo.database import Database
 
 from app.config import get_settings
-from app.dependencies import get_current_owner, get_db
+from app.dependencies import get_current_owner, get_db, get_vault_owner_context
 from app.schemas.certificate import CertificateOut
 from app.services import certificate_service
 from app.services.storage_service import (
@@ -64,10 +64,10 @@ async def upload_file(
 @router.get("/{certificate_id}/preview")
 def preview_file(
     certificate_id: str,
-    owner: dict = Depends(get_current_owner),
+    vault_ctx: dict = Depends(get_vault_owner_context),
     db: Database = Depends(get_db),
 ):
-    doc = certificate_service.get_certificate_doc(db, owner["owner_id"], certificate_id)
+    doc = certificate_service.get_certificate_doc(db, vault_ctx["owner_id"], certificate_id)
     storage_path = doc.get("storage_path")
     if not storage_path:
         raise HTTPException(
@@ -96,10 +96,10 @@ def preview_file(
 @router.get("/{certificate_id}/download")
 def download_file(
     certificate_id: str,
-    owner: dict = Depends(get_current_owner),
+    vault_ctx: dict = Depends(get_vault_owner_context),
     db: Database = Depends(get_db),
 ):
-    doc = certificate_service.get_certificate_doc(db, owner["owner_id"], certificate_id)
+    doc = certificate_service.get_certificate_doc(db, vault_ctx["owner_id"], certificate_id)
     storage_path = doc.get("storage_path")
     if not storage_path:
         raise HTTPException(

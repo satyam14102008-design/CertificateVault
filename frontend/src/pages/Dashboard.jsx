@@ -14,10 +14,12 @@ import { StatsCard } from '../components/StatsCard';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState';
 import { CertificateCardSkeleton, Skeleton, StatsCardSkeleton } from '../components/ui/Skeleton';
+import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 import { formatBytes, formatDisplayDate } from '../utils/formatDate';
 
 export default function Dashboard() {
+  const { isAuthenticated } = useAuth();
   const {
     certificates,
     stats,
@@ -195,10 +197,10 @@ export default function Dashboard() {
           </div>
 
           <Link
-            to="/settings?tab=backup"
+            to={isAuthenticated ? '/settings?tab=backup' : '/certificates'}
             className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-control bg-slate-50 hover:bg-slate-100 border border-border text-xs font-medium text-ink-primary transition-colors min-h-[40px] sm:min-h-[36px]"
           >
-            <span>Storage & backup export</span>
+            <span>{isAuthenticated ? 'Storage & backup export' : 'Browse all certificates'}</span>
             <ArrowRight className="w-3.5 h-3.5 text-ink-muted" aria-hidden="true" />
           </Link>
         </div>
@@ -228,9 +230,13 @@ export default function Dashboard() {
         ) : certificates.length === 0 ? (
           <EmptyState
             title="Your vault is empty"
-            description="Add your first certificate PDF, image, or verification link to keep every achievement safe in one place."
-            actionLabel="Add Certificate"
-            onAction={openAddModal}
+            description={
+              isAuthenticated
+                ? 'Add your first certificate PDF, image, or verification link to keep every achievement safe in one place.'
+                : 'No certificates have been published yet.'
+            }
+            actionLabel={isAuthenticated ? 'Add Certificate' : undefined}
+            onAction={isAuthenticated ? openAddModal : undefined}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

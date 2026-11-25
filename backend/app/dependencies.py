@@ -106,3 +106,40 @@ def get_current_owner(
         "email": user_doc["email"],
         "label": "My Vault",
     }
+
+
+def get_vault_owner_context(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Database = Depends(get_db),
+) -> dict:
+    """Resolve the vault owner for public read-only viewing and note whether caller is authenticated owner."""
+    settings = get_settings()
+    if not settings.owner_email.strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vault owner is not configured.",
+        )
+
+    try:
+        user_doc = ensure_owner_user(db, settings.owner_email)
+    except PyMongoError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable.",
+        ) from exc
+
+    owner_id = str(user_doc["_id"])
+    is_owner = False
+
+    if credentials and credentials.scheme.lower() == "bearer":
+        try:
+            payload = decode_access_token(credentials.credentials)
+            if emails_match(payload.get("email", ""), settings.owner_email) and payload.get("sub") == owner_id:
+                is_owner = True
+        except jwt.InvalidTokenError:
+            is_owner = False
+
+    return {
+        "owner_id": owner_id,
+        "is_owner": is_owner,
+    }

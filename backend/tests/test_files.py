@@ -74,8 +74,24 @@ def test_file_upload_preview_download_and_delete(
     assert dl_resp.content == VALID_PDF
     assert "attachment;" in dl_resp.headers["content-disposition"]
 
-    # Unauthorized access rejected
-    assert client.get(f"/api/files/{cert_id}/download").status_code == 401
+    # Public visitor can preview & download certificate file, but cannot upload or delete
+    pub_preview = client.get(f"/api/files/{cert_id}/preview")
+    assert pub_preview.status_code == 200
+    assert pub_preview.content == VALID_PDF
+
+    pub_dl = client.get(f"/api/files/{cert_id}/download")
+    assert pub_dl.status_code == 200
+    assert pub_dl.content == VALID_PDF
+
+    assert (
+        client.post(
+            "/api/files/upload",
+            data={"certificate_id": cert_id},
+            files={"file": ("hack.pdf", VALID_PDF, "application/pdf")},
+        ).status_code
+        == 401
+    )
+    assert client.delete(f"/api/files/{cert_id}").status_code == 401
 
     # Delete certificate cleans up storage
     del_resp = client.delete(f"/api/certificates/{cert_id}", headers=auth_headers)

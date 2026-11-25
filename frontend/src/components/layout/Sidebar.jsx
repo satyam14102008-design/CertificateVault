@@ -3,9 +3,11 @@ import clsx from 'clsx';
 import {
   Award,
   ChevronUp,
+  Eye,
   FolderKanban,
   LayoutDashboard,
   Lock,
+  LogIn,
   LogOut,
   Settings,
   ShieldCheck,
@@ -33,26 +35,31 @@ export function BrandLogo() {
   );
 }
 
-function getNavItems(stats, certificates) {
+function getNavItems(stats, certificates, isAuthenticated) {
   const totalCount = stats?.total ?? certificates.length;
   const favCount = stats?.favorites ?? certificates.filter((c) => c.isFavorite).length;
   const activeCategories = (stats?.byCategory || []).filter((c) => c.count > 0).length;
 
-  return [
+  const items = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/certificates', label: 'My Certificates', icon: Award, badge: totalCount },
     { to: '/categories', label: 'Categories', icon: FolderKanban, badge: activeCategories || null },
     { to: '/favorites', label: 'Favorites', icon: Star, badge: favCount || null },
-    { to: '/settings', label: 'Settings', icon: Settings },
   ];
+
+  if (isAuthenticated) {
+    items.push({ to: '/settings', label: 'Settings', icon: Settings });
+  }
+
+  return items;
 }
 
 export function SidebarNavContent({ onNavigate }) {
   const { stats, certificates } = useCertificates();
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
-  const navItems = getNavItems(stats, certificates);
+  const navItems = getNavItems(stats, certificates, isAuthenticated);
 
   const userMenuItems = [
     {
@@ -73,7 +80,6 @@ export function SidebarNavContent({ onNavigate }) {
       onClick: () => {
         onNavigate?.();
         logout();
-        navigate('/login', { replace: true });
       },
     },
   ];
@@ -142,39 +148,56 @@ export function SidebarNavContent({ onNavigate }) {
       </nav>
 
       <div className="p-3 border-t border-sidebar-border">
-        <Dropdown
-          align="left"
-          widthClass="w-56 bottom-full mb-2 top-auto mt-0"
-          items={userMenuItems}
-          className="w-full block"
-          trigger={({ open }) => (
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-label="Vault account menu"
-              className="w-full flex items-center gap-3 p-2.5 rounded-control hover:bg-sidebar-hover transition-colors text-left min-h-[48px]"
-            >
-              <div className="w-9 h-9 rounded-full bg-indigo-500/25 border border-indigo-400/30 text-indigo-200 flex items-center justify-center shrink-0">
-                <Lock className="w-4 h-4" aria-hidden="true" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-white truncate">
-                  {user?.label || 'My Vault'}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {user?.email || 'Private Owner'}
-                </p>
-              </div>
-              <ChevronUp
-                className={clsx(
-                  'w-4 h-4 text-slate-400 transition-transform shrink-0',
-                  open && 'rotate-180'
-                )}
-                aria-hidden="true"
-              />
-            </button>
-          )}
-        />
+        {isAuthenticated ? (
+          <Dropdown
+            align="left"
+            widthClass="w-56 bottom-full mb-2 top-auto mt-0"
+            items={userMenuItems}
+            className="w-full block"
+            trigger={({ open }) => (
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-label="Vault account menu"
+                className="w-full flex items-center gap-3 p-2.5 rounded-control hover:bg-sidebar-hover transition-colors text-left min-h-[48px]"
+              >
+                <div className="w-9 h-9 rounded-full bg-indigo-500/25 border border-indigo-400/30 text-indigo-200 flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white truncate">
+                    {user?.label || 'My Vault'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    {user?.email || 'Owner Mode'}
+                  </p>
+                </div>
+                <ChevronUp
+                  className={clsx(
+                    'w-4 h-4 text-slate-400 transition-transform shrink-0',
+                    open && 'rotate-180'
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+          />
+        ) : (
+          <NavLink
+            to="/login"
+            onClick={onNavigate}
+            className="w-full flex items-center gap-3 p-2.5 rounded-control hover:bg-sidebar-hover transition-colors text-left min-h-[48px]"
+          >
+            <div className="w-9 h-9 rounded-full bg-white/10 border border-white/15 text-slate-300 flex items-center justify-center shrink-0">
+              <Eye className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-white truncate">Public View</p>
+              <p className="text-[11px] text-slate-400 truncate">Read-only showcase</p>
+            </div>
+            <LogIn className="w-4 h-4 text-indigo-300 shrink-0" aria-hidden="true" />
+          </NavLink>
+        )}
       </div>
     </div>
   );

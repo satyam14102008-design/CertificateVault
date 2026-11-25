@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getCachedImageThumbnailUrl } from '../services/certificateService';
+import { useAuth } from '../hooks/useAuth';
 import { formatDisplayDate } from '../utils/formatDate';
 import { Badge } from './ui/Badge';
 import { Dropdown } from './ui/Dropdown';
@@ -26,6 +27,7 @@ export const CertificateRow = memo(function CertificateRow({
   onToggleFavorite,
   onDownload,
 }) {
+  const { isAuthenticated } = useAuth();
   const isPdf = certificate.file?.type === 'application/pdf';
   const isImage = Boolean(certificate.file?.type?.startsWith('image/'));
   const hasPreviewableFile = isImage || isPdf;
@@ -61,18 +63,6 @@ export const CertificateRow = memo(function CertificateRow({
       icon: Eye,
       onClick: () => onQuickPreview?.(certificate),
     },
-    {
-      id: 'edit',
-      label: 'Edit details',
-      icon: Edit3,
-      onClick: () => onEdit?.(certificate),
-    },
-    {
-      id: 'favorite',
-      label: certificate.isFavorite ? 'Remove favorite' : 'Add to favorites',
-      icon: Star,
-      onClick: () => onToggleFavorite?.(certificate),
-    },
     ...(hasUrl
       ? [
           {
@@ -83,14 +73,30 @@ export const CertificateRow = memo(function CertificateRow({
           },
         ]
       : []),
-    { divider: true },
-    {
-      id: 'delete',
-      label: 'Delete',
-      icon: Trash2,
-      danger: true,
-      onClick: () => onDelete?.(certificate),
-    },
+    ...(isAuthenticated
+      ? [
+          {
+            id: 'edit',
+            label: 'Edit details',
+            icon: Edit3,
+            onClick: () => onEdit?.(certificate),
+          },
+          {
+            id: 'favorite',
+            label: certificate.isFavorite ? 'Remove favorite' : 'Add to favorites',
+            icon: Star,
+            onClick: () => onToggleFavorite?.(certificate),
+          },
+          { divider: true },
+          {
+            id: 'delete',
+            label: 'Delete',
+            icon: Trash2,
+            danger: true,
+            onClick: () => onDelete?.(certificate),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -151,18 +157,20 @@ export const CertificateRow = memo(function CertificateRow({
         <Badge category={certificate.category}>{certificate.category}</Badge>
 
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onToggleFavorite?.(certificate)}
-            aria-label={certificate.isFavorite ? `Unfavorite ${certificate.title}` : `Favorite ${certificate.title}`}
-            aria-pressed={certificate.isFavorite}
-            className="p-2 rounded-control text-ink-muted hover:text-amber-500 hover:bg-amber-50 transition-colors min-h-[40px] min-w-[40px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center"
-          >
-            <Star
-              className={clsx('w-4 h-4', certificate.isFavorite && 'fill-amber-400 text-amber-500')}
-              aria-hidden="true"
-            />
-          </button>
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite?.(certificate)}
+              aria-label={certificate.isFavorite ? `Unfavorite ${certificate.title}` : `Favorite ${certificate.title}`}
+              aria-pressed={certificate.isFavorite}
+              className="p-2 rounded-control text-ink-muted hover:text-amber-500 hover:bg-amber-50 transition-colors min-h-[40px] min-w-[40px] sm:min-h-[34px] sm:min-w-[34px] flex items-center justify-center"
+            >
+              <Star
+                className={clsx('w-4 h-4', certificate.isFavorite && 'fill-amber-400 text-amber-500')}
+                aria-hidden="true"
+              />
+            </button>
+          )}
 
           <Link
             to={`/certificates/${certificate.id}`}

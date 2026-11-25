@@ -38,8 +38,9 @@ def main() -> int:
             assert health.status_code == 200, f"Health failed: {health.text}"
             print("LIVE HEALTH:", health.json())
 
-            # 2. Protected route blocks unauthenticated
-            assert client.get("/api/certificates").status_code == 401
+            # 2. Public read works while write endpoints block unauthenticated callers
+            assert client.get("/api/certificates").status_code == 200
+            assert client.post("/api/certificates", json={"title": "Unauth"}).status_code == 401
 
             # 3. Workflow A: Create + Upload PDF -> Preview -> Download
             c1 = client.post(

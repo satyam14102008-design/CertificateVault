@@ -61,6 +61,7 @@ def list_certificates(
     sort: str = "newest",
     page: int = 1,
     limit: int = 100,
+    include_private: bool = True,
 ) -> dict[str, Any]:
     """Query persistent certificates for owner_id with search, filters, sorting, and pagination."""
     query: dict[str, Any] = {"owner_id": owner_id}
@@ -98,7 +99,7 @@ def list_certificates(
     total = db["certificates"].count_documents(query)
     skip = max(0, (page - 1) * limit)
     cursor = db["certificates"].find(query).sort(sort_spec).skip(skip).limit(limit)
-    items = [serialize_certificate(doc) for doc in cursor]
+    items = [serialize_certificate(doc, include_private=include_private) for doc in cursor]
 
     return {
         "items": items,

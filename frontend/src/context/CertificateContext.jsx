@@ -19,13 +19,6 @@ export function CertificateProvider({ children }) {
 
   const refreshAll = useCallback(
     async ({ silent = false } = {}) => {
-      if (!isAuthenticated) {
-        setCertificates([]);
-        setStats(null);
-        setLoading(false);
-        return;
-      }
-
       if (!silent) {
         setLoading(true);
         setError(null);
@@ -41,12 +34,12 @@ export function CertificateProvider({ children }) {
         if (!silent) setLoading(false);
       }
     },
-    [isAuthenticated]
+    []
   );
 
   useEffect(() => {
     refreshAll();
-  }, [refreshAll]);
+  }, [refreshAll, isAuthenticated]);
 
   const openAddModal = useCallback(() => {
     setFormModalState({ open: true, certificate: null });

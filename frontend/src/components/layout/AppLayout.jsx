@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { Download, Edit3, ExternalLink, Maximize2, Star, Trash2 } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 import { useCertificates } from '../../hooks/useCertificates';
 import { formatDisplayDate } from '../../utils/formatDate';
 import { CertificateModal } from '../CertificateModal';
@@ -14,6 +15,7 @@ import { MobileNav } from './MobileNav';
 import { Sidebar } from './Sidebar';
 
 export function AppLayout() {
+  const { isAuthenticated } = useAuth();
   const {
     formModalState,
     closeFormModal,
@@ -63,12 +65,14 @@ export function AppLayout() {
         </main>
       </div>
 
-      <CertificateModal
-        open={formModalState.open}
-        certificate={formModalState.certificate}
-        onClose={closeFormModal}
-        onSave={handleSaveCertificate}
-      />
+      {isAuthenticated && (
+        <CertificateModal
+          open={formModalState.open}
+          certificate={formModalState.certificate}
+          onClose={closeFormModal}
+          onSave={handleSaveCertificate}
+        />
+      )}
 
       <Modal
         open={Boolean(quickPreviewCert)}
@@ -90,46 +94,50 @@ export function AppLayout() {
           quickPreviewCert && (
             <div className="w-full flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => toggleFavorite(quickPreviewCert)}
-                >
-                  <Star
-                    className={
-                      quickPreviewCert.isFavorite
-                        ? 'w-4 h-4 fill-amber-400 text-amber-500'
-                        : 'w-4 h-4'
-                    }
-                    aria-hidden="true"
-                  />
-                  <span>{quickPreviewCert.isFavorite ? 'Favorited' : 'Favorite'}</span>
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    const target = quickPreviewCert;
-                    closeQuickPreview();
-                    openEditModal(target);
-                  }}
-                >
-                  <Edit3 className="w-4 h-4" aria-hidden="true" />
-                  <span>Edit</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-semantic-danger hover:bg-red-50"
-                  onClick={() => {
-                    const target = quickPreviewCert;
-                    closeQuickPreview();
-                    setDeleteTarget(target);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" aria-hidden="true" />
-                  <span>Delete</span>
-                </Button>
+                {isAuthenticated && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => toggleFavorite(quickPreviewCert)}
+                    >
+                      <Star
+                        className={
+                          quickPreviewCert.isFavorite
+                            ? 'w-4 h-4 fill-amber-400 text-amber-500'
+                            : 'w-4 h-4'
+                        }
+                        aria-hidden="true"
+                      />
+                      <span>{quickPreviewCert.isFavorite ? 'Favorited' : 'Favorite'}</span>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const target = quickPreviewCert;
+                        closeQuickPreview();
+                        openEditModal(target);
+                      }}
+                    >
+                      <Edit3 className="w-4 h-4" aria-hidden="true" />
+                      <span>Edit</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-semantic-danger hover:bg-red-50"
+                      onClick={() => {
+                        const target = quickPreviewCert;
+                        closeQuickPreview();
+                        setDeleteTarget(target);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      <span>Delete</span>
+                    </Button>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -175,10 +183,14 @@ export function AppLayout() {
             <CertificatePreview
               certificate={quickPreviewCert}
               onDownload={downloadCertificate}
-              onEdit={(cert) => {
-                closeQuickPreview();
-                openEditModal(cert);
-              }}
+              onEdit={
+                isAuthenticated
+                  ? (cert) => {
+                      closeQuickPreview();
+                      openEditModal(cert);
+                    }
+                  : undefined
+              }
             />
             {quickPreviewCert.description && (
               <p className="text-sm text-ink-secondary leading-relaxed">
@@ -189,19 +201,21 @@ export function AppLayout() {
         )}
       </Modal>
 
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleConfirmDelete}
-        loading={deleting}
-        title="Delete certificate?"
-        message={
-          deleteTarget
-            ? `Are you sure you want to permanently delete "${deleteTarget.title}"? Any stored cloud file will also be deleted.`
-            : ''
-        }
-        confirmLabel="Delete certificate"
-      />
+      {isAuthenticated && (
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDelete}
+          loading={deleting}
+          title="Delete certificate?"
+          message={
+            deleteTarget
+              ? `Are you sure you want to permanently delete "${deleteTarget.title}"? Any stored cloud file will also be deleted.`
+              : ''
+          }
+          confirmLabel="Delete certificate"
+        />
+      )}
     </div>
   );
 }

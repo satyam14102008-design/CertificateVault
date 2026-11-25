@@ -16,6 +16,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 import { getCertificate } from '../services/certificateService';
 import { formatBytes, formatDisplayDate, formatRelativeTime } from '../utils/formatDate';
@@ -23,6 +24,7 @@ import { formatBytes, formatDisplayDate, formatRelativeTime } from '../utils/for
 export default function CertificateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const {
     certificates,
     loading: contextLoading,
@@ -108,31 +110,33 @@ export default function CertificateDetail() {
           <span>Back to My Certificates</span>
         </Link>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => toggleFavorite(liveCert)}>
-            <Star
-              className={clsx(
-                'w-4 h-4',
-                liveCert.isFavorite && 'fill-amber-400 text-amber-500'
-              )}
-              aria-hidden="true"
-            />
-            <span>{liveCert.isFavorite ? 'Favorited' : 'Favorite'}</span>
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => openEditModal(liveCert)}>
-            <Edit3 className="w-4 h-4" aria-hidden="true" />
-            <span>Edit</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-semantic-danger hover:bg-red-50"
-            onClick={() => onRequestDelete(liveCert)}
-          >
-            <Trash2 className="w-4 h-4" aria-hidden="true" />
-            <span>Delete</span>
-          </Button>
-        </div>
+        {isAuthenticated && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => toggleFavorite(liveCert)}>
+              <Star
+                className={clsx(
+                  'w-4 h-4',
+                  liveCert.isFavorite && 'fill-amber-400 text-amber-500'
+                )}
+                aria-hidden="true"
+              />
+              <span>{liveCert.isFavorite ? 'Favorited' : 'Favorite'}</span>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => openEditModal(liveCert)}>
+              <Edit3 className="w-4 h-4" aria-hidden="true" />
+              <span>Edit</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-semantic-danger hover:bg-red-50"
+              onClick={() => onRequestDelete(liveCert)}
+            >
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
+              <span>Delete</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -140,7 +144,7 @@ export default function CertificateDetail() {
           <CertificatePreview
             certificate={liveCert}
             onDownload={downloadCertificate}
-            onEdit={openEditModal}
+            onEdit={isAuthenticated ? openEditModal : undefined}
           />
         </div>
 

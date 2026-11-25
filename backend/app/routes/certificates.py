@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query, Response, status
 from pymongo.database import Database
 
-from app.dependencies import get_current_owner, get_db
+from app.dependencies import get_current_owner, get_db, get_vault_owner_context
 from app.schemas.certificate import (
     CertificateCreate,
     CertificateListResponse,
@@ -26,12 +26,12 @@ def list_certificates(
     sort: str = Query(default="newest"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=100, ge=1, le=500),
-    owner: dict = Depends(get_current_owner),
+    vault_ctx: dict = Depends(get_vault_owner_context),
     db: Database = Depends(get_db),
 ):
     return certificate_service.list_certificates(
         db,
-        owner["owner_id"],
+        vault_ctx["owner_id"],
         search=search,
         category=category,
         issuer=issuer,
@@ -39,6 +39,7 @@ def list_certificates(
         sort=sort,
         page=page,
         limit=limit,
+        include_private=vault_ctx["is_owner"],
     )
 
 
@@ -127,13 +128,13 @@ def create_certificate(
 @router.get("/{certificate_id}", response_model=CertificateOut)
 def get_certificate(
     certificate_id: str,
-    owner: dict = Depends(get_current_owner),
+    vault_ctx: dict = Depends(get_vault_owner_context),
     db: Database = Depends(get_db),
 ):
-    doc = certificate_service.get_certificate_doc(db, owner["owner_id"], certificate_id)
+    doc = certificate_service.get_certificate_doc(db, vault_ctx["owner_id"], certificate_id)
     from app.models.certificate import serialize_certificate
 
-    return serialize_certificate(doc)
+    return serialize_certificate(doc, include_private=vault_ctx["is_owner"])
 
 
 @router.put("/{certificate_id}", response_model=CertificateOut)

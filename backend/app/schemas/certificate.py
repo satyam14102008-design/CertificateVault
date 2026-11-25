@@ -126,6 +126,7 @@ class CertificateOut(BaseModel):
     issue_date: str
     description: str
     certificate_url: str
+    has_file: bool = False
     storage_path: Optional[str] = None
     original_filename: Optional[str] = None
     file_type: Optional[str] = None

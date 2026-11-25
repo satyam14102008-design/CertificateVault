@@ -20,7 +20,7 @@ export function invalidatePreviewCache(certificateId) {
 
 function normalizeCertificate(raw) {
   if (!raw) return null;
-  const hasFile = Boolean(raw.storage_path);
+  const hasFile = Boolean(raw.has_file || raw.storage_path);
   return {
     id: raw.id,
     ownerId: raw.owner_id,
@@ -36,7 +36,7 @@ function normalizeCertificate(raw) {
           name: raw.original_filename || 'certificate',
           type: raw.file_type || 'application/octet-stream',
           size: raw.file_size || 0,
-          storagePath: raw.storage_path,
+          storagePath: raw.storage_path || raw.id,
         }
       : null,
     createdAt: raw.created_at || '',

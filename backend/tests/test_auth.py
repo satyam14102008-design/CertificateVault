@@ -37,8 +37,33 @@ def test_login_invalid_email(client: TestClient):
 
 def test_protected_routes_require_auth(client: TestClient):
     assert client.get("/api/auth/me").status_code == 401
-    assert client.get("/api/certificates").status_code == 401
     assert client.post("/api/certificates", json={"title": "Test"}).status_code == 401
+    assert client.put("/api/certificates/000000000000000000000000", json={"title": "X"}).status_code == 401
+    assert client.delete("/api/certificates/000000000000000000000000").status_code == 401
+    assert client.get("/api/certificates/export").status_code == 401
+
+
+def test_public_read_hides_private_owner_fields(client: TestClient, auth_headers: dict[str, str]):
+    created = client.post(
+        "/api/certificates",
+        headers=auth_headers,
+        json={"title": "Public Portfolio Cert", "issuer": "Google", "category": "Courses"},
+    )
+    assert created.status_code == 201
+    cert_id = created.json()["id"]
+
+    # Unauthenticated visitor can read list & detail without leaking owner_id or storage_path
+    public_list = client.get("/api/certificates")
+    assert public_list.status_code == 200
+    items = public_list.json()["items"]
+    assert len(items) == 1
+    assert items[0]["title"] == "Public Portfolio Cert"
+    assert items[0]["owner_id"] == ""
+    assert items[0]["storage_path"] is None
+
+    public_detail = client.get(f"/api/certificates/{cert_id}")
+    assert public_detail.status_code == 200
+    assert public_detail.json()["owner_id"] == ""
 
 
 def test_me_returns_owner_info(client: TestClient, auth_headers: dict[str, str]):

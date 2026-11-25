@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getCachedImageThumbnailUrl } from '../services/certificateService';
+import { useAuth } from '../hooks/useAuth';
 import { formatBytes, formatDisplayDate } from '../utils/formatDate';
 import { Badge } from './ui/Badge';
 import { Dropdown } from './ui/Dropdown';
@@ -27,6 +28,7 @@ export const CertificateCard = memo(function CertificateCard({
   onToggleFavorite,
   onDownload,
 }) {
+  const { isAuthenticated } = useAuth();
   const isPdf = certificate.file?.type === 'application/pdf';
   const isImage = Boolean(certificate.file?.type?.startsWith('image/'));
   const hasPreviewableFile = isImage || isPdf;
@@ -62,18 +64,6 @@ export const CertificateCard = memo(function CertificateCard({
       icon: Eye,
       onClick: () => onQuickPreview?.(certificate),
     },
-    {
-      id: 'edit',
-      label: 'Edit details',
-      icon: Edit3,
-      onClick: () => onEdit?.(certificate),
-    },
-    {
-      id: 'favorite',
-      label: certificate.isFavorite ? 'Remove favorite' : 'Add to favorites',
-      icon: Star,
-      onClick: () => onToggleFavorite?.(certificate),
-    },
     ...(hasUrl
       ? [
           {
@@ -84,14 +74,30 @@ export const CertificateCard = memo(function CertificateCard({
           },
         ]
       : []),
-    { divider: true },
-    {
-      id: 'delete',
-      label: 'Delete',
-      icon: Trash2,
-      danger: true,
-      onClick: () => onDelete?.(certificate),
-    },
+    ...(isAuthenticated
+      ? [
+          {
+            id: 'edit',
+            label: 'Edit details',
+            icon: Edit3,
+            onClick: () => onEdit?.(certificate),
+          },
+          {
+            id: 'favorite',
+            label: certificate.isFavorite ? 'Remove favorite' : 'Add to favorites',
+            icon: Star,
+            onClick: () => onToggleFavorite?.(certificate),
+          },
+          { divider: true },
+          {
+            id: 'delete',
+            label: 'Delete',
+            icon: Trash2,
+            danger: true,
+            onClick: () => onDelete?.(certificate),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -146,25 +152,34 @@ export const CertificateCard = memo(function CertificateCard({
         </button>
 
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
-          <Tooltip content={certificate.isFavorite ? 'Remove from favorites' : 'Mark as favorite'}>
-            <button
-              type="button"
-              onClick={() => onToggleFavorite?.(certificate)}
-              aria-label={certificate.isFavorite ? `Unfavorite ${certificate.title}` : `Favorite ${certificate.title}`}
-              aria-pressed={certificate.isFavorite}
-              className={clsx(
-                'w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-sm border transition-colors',
-                certificate.isFavorite
-                  ? 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100'
-                  : 'bg-white/95 border-border text-ink-muted hover:text-amber-500 hover:bg-white'
-              )}
+          {isAuthenticated ? (
+            <Tooltip content={certificate.isFavorite ? 'Remove from favorites' : 'Mark as favorite'}>
+              <button
+                type="button"
+                onClick={() => onToggleFavorite?.(certificate)}
+                aria-label={certificate.isFavorite ? `Unfavorite ${certificate.title}` : `Favorite ${certificate.title}`}
+                aria-pressed={certificate.isFavorite}
+                className={clsx(
+                  'w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-sm border transition-colors',
+                  certificate.isFavorite
+                    ? 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100'
+                    : 'bg-white/95 border-border text-ink-muted hover:text-amber-500 hover:bg-white'
+                )}
+              >
+                <Star
+                  className={clsx('w-4 h-4', certificate.isFavorite && 'fill-amber-400 text-amber-500')}
+                  aria-hidden="true"
+                />
+              </button>
+            </Tooltip>
+          ) : certificate.isFavorite ? (
+            <span
+              aria-label="Featured achievement"
+              className="w-8 h-8 rounded-full flex items-center justify-center shadow-sm border bg-amber-50 border-amber-200 text-amber-500"
             >
-              <Star
-                className={clsx('w-4 h-4', certificate.isFavorite && 'fill-amber-400 text-amber-500')}
-                aria-hidden="true"
-              />
-            </button>
-          </Tooltip>
+              <Star className="w-4 h-4 fill-amber-400 text-amber-500" aria-hidden="true" />
+            </span>
+          ) : null}
         </div>
       </div>
 

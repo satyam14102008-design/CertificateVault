@@ -6,11 +6,13 @@ import { CertificateRow } from '../components/CertificateRow';
 import { FilterBar } from '../components/FilterBar';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState';
 import { CertificateCardSkeleton, CertificateRowSkeleton } from '../components/ui/Skeleton';
+import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 import { useDebounce } from '../hooks/useDebounce';
 import { getViewPreference, setViewPreference } from '../services/certificateService';
 
 export default function MyCertificates() {
+  const { isAuthenticated } = useAuth();
   const {
     certificates,
     stats,
@@ -185,9 +187,13 @@ export default function MyCertificates() {
         <EmptyState
           icon={Award}
           title="No certificates yet"
-          description="Upload a PDF or image certificate, or add a credential with its verification URL."
-          actionLabel="Add your first certificate"
-          onAction={openAddModal}
+          description={
+            isAuthenticated
+              ? 'Upload a PDF or image certificate, or add a credential with its verification URL.'
+              : 'No certificates are listed yet.'
+          }
+          actionLabel={isAuthenticated ? 'Add your first certificate' : undefined}
+          onAction={isAuthenticated ? openAddModal : undefined}
         />
       ) : filteredCertificates.length === 0 ? (
         <EmptyState

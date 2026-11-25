@@ -4,9 +4,11 @@ import { Star } from 'lucide-react';
 import { CertificateCard } from '../components/CertificateCard';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState';
 import { CertificateCardSkeleton } from '../components/ui/Skeleton';
+import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 
 export default function Favorites() {
+  const { isAuthenticated } = useAuth();
   const {
     certificates,
     loading,
@@ -47,11 +49,15 @@ export default function Favorites() {
         <EmptyState
           icon={Star}
           title="No favorite certificates yet"
-          description="Click the star icon on any certificate card to pin your standout credentials here."
-          actionLabel="Browse My Certificates"
+          description={
+            isAuthenticated
+              ? 'Click the star icon on any certificate card to pin your standout credentials here.'
+              : 'Featured standout credentials pinned by the vault owner will appear here.'
+          }
+          actionLabel="Browse Certificates"
           onAction={() => navigate('/certificates')}
-          secondaryActionLabel="Add Certificate"
-          onSecondaryAction={openAddModal}
+          secondaryActionLabel={isAuthenticated ? 'Add Certificate' : undefined}
+          onSecondaryAction={isAuthenticated ? openAddModal : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

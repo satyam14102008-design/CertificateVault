@@ -16,6 +16,7 @@ import { CertificateCard } from '../components/CertificateCard';
 import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState';
 import { CertificateCardSkeleton, Skeleton } from '../components/ui/Skeleton';
+import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 import { CATEGORIES } from '../utils/categories';
 
@@ -30,6 +31,7 @@ const CATEGORY_ICONS = {
 };
 
 export default function Categories() {
+  const { isAuthenticated } = useAuth();
   const {
     certificates,
     loading,
@@ -144,9 +146,13 @@ export default function Categories() {
           {filteredCerts.length === 0 ? (
             <EmptyState
               title={`No ${selectedCategory} certificates yet`}
-              description={`Add a credential under ${selectedCategory} to see it listed here.`}
-              actionLabel="Add Certificate"
-              onAction={openAddModal}
+              description={
+                isAuthenticated
+                  ? `Add a credential under ${selectedCategory} to see it listed here.`
+                  : `No credentials have been published under ${selectedCategory} yet.`
+              }
+              actionLabel={isAuthenticated ? 'Add Certificate' : undefined}
+              onAction={isAuthenticated ? openAddModal : undefined}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
