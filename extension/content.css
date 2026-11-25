@@ -1,0 +1,96 @@
+.cv-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  color: #ffffff !important;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  vertical-align: middle;
+  text-decoration: none !important;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.28);
+  transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+}
+
+.cv-inline-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.cv-inline-btn:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.cv-inline-btn-saved {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+  box-shadow: none !important;
+}
+
+.cv-inline-btn-error {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-color: #fecaca !important;
+  box-shadow: none !important;
+}
+
+.cv-floating-wrap {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483640;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cv-floating-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.22);
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.cv-floating-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.cv-floating-btn-saved {
+  background: #059669 !important;
+}
+
+.cv-floating-btn-error {
+  background: #dc2626 !important;
+}
+
+.cv-floating-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}

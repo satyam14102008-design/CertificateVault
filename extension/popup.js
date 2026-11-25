@@ -63,16 +63,39 @@ function setAuthState(owner) {
   }
 }
 
+function inferIssuerFromUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).hostname.replace(/^www\./, '');
+    if (host.includes('coursera.org')) return 'Coursera';
+    if (host.includes('freecodecamp.org')) return 'freeCodeCamp';
+    if (host.includes('udemy.com')) return 'Udemy';
+    if (host.includes('credly.com')) return 'Credly';
+    if (host.includes('hackerrank.com')) return 'HackerRank';
+    if (host.includes('cloudskillsboost.google') || host.includes('skills.google')) {
+      return 'Google Cloud';
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
 async function prefillFromActiveTab() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
 
     if (tab.title && !titleInput.value.trim()) {
-      titleInput.value = tab.title.trim().slice(0, 160);
+      titleInput.value = tab.title
+        .replace(/\s*[|\-–]\s*(Coursera|freeCodeCamp|Udemy|Credly|HackerRank).*$/i, '')
+        .trim()
+        .slice(0, 160);
     }
     if (tab.url && (tab.url.startsWith('https://') || tab.url.startsWith('http://'))) {
       urlInput.value = tab.url;
+      if (!issuerInput.value.trim()) {
+        issuerInput.value = inferIssuerFromUrl(tab.url);
+      }
     }
   } catch {
     // Active tab unavailable on restricted browser pages
