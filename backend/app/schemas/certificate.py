@@ -150,6 +150,8 @@ class VaultStats(BaseModel):
     hackathons: int
     files_attached_count: int
     storage_used_bytes: int
+    storage_quota_bytes: int
+    storage_remaining_bytes: int
     by_category: list[CategoryStat]
     issuers: list[str]
 

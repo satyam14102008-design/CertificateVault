@@ -69,6 +69,11 @@ def test_search_filter_sort_and_stats(client: TestClient, auth_headers: dict[str
     assert [c["title"] for c in body["items"]] == ["Gamma Course", "Alpha Course"]
     assert body["stats"]["total"] == 3
     assert body["stats"]["favorites"] == 1
+    assert body["stats"]["storage_quota_bytes"] > 0
+    assert (
+        body["stats"]["storage_remaining_bytes"]
+        == body["stats"]["storage_quota_bytes"] - body["stats"]["storage_used_bytes"]
+    )
 
     search_res = client.get("/api/certificates?search=Hackathon", headers=auth_headers)
     assert search_res.status_code == 200

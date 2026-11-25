@@ -46,6 +46,10 @@ function normalizeCertificate(raw) {
 
 function normalizeStats(rawStats) {
   if (!rawStats) return null;
+  const storageUsedBytes = rawStats.storage_used_bytes || 0;
+  const storageQuotaBytes = rawStats.storage_quota_bytes || 1024 * 1024 * 1024;
+  const storageRemainingBytes =
+    rawStats.storage_remaining_bytes ?? Math.max(0, storageQuotaBytes - storageUsedBytes);
   return {
     total: rawStats.total || 0,
     favorites: rawStats.favorites || 0,
@@ -53,7 +57,9 @@ function normalizeStats(rawStats) {
     internships: rawStats.internships || 0,
     hackathons: rawStats.hackathons || 0,
     filesAttachedCount: rawStats.files_attached_count || 0,
-    storageUsedBytes: rawStats.storage_used_bytes || 0,
+    storageUsedBytes,
+    storageQuotaBytes,
+    storageRemainingBytes,
     byCategory: rawStats.by_category || [],
     issuers: rawStats.issuers || [],
   };

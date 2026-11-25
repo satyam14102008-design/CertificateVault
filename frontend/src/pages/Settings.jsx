@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { StorageMeter } from '../components/ui/StorageMeter';
 import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 import { formatBytes } from '../utils/formatDate';
@@ -145,11 +146,17 @@ export default function Settings() {
               <Badge tone="success">Private Bucket</Badge>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="rounded-control bg-slate-50 border border-border p-4">
-                <p className="text-xs font-medium text-ink-secondary">Total File Size</p>
+                <p className="text-xs font-medium text-ink-secondary">Used Storage</p>
                 <p className="text-xl font-bold text-ink-primary tabular-nums mt-1">
                   {formatBytes(stats?.storageUsedBytes || 0)}
+                </p>
+              </div>
+              <div className="rounded-control bg-emerald-50/70 border border-emerald-200/80 p-4">
+                <p className="text-xs font-medium text-emerald-800">Storage Left</p>
+                <p className="text-xl font-bold text-emerald-700 tabular-nums mt-1">
+                  {formatBytes(stats?.storageRemainingBytes ?? 1024 * 1024 * 1024)}
                 </p>
               </div>
               <div className="rounded-control bg-slate-50 border border-border p-4">
@@ -159,6 +166,17 @@ export default function Settings() {
                 </p>
               </div>
             </div>
+
+            <StorageMeter
+              usedBytes={stats?.storageUsedBytes || 0}
+              quotaBytes={stats?.storageQuotaBytes}
+              remainingBytes={stats?.storageRemainingBytes}
+              className="pt-1"
+            />
+
+            <p className="text-xs text-ink-muted">
+              Supabase Storage Free tier provides {formatBytes(stats?.storageQuotaBytes || 1024 * 1024 * 1024)} for PDF and image files. Certificate text records are stored separately in MongoDB Atlas (512 MB free tier).
+            </p>
           </section>
 
           <section className="bg-surface border border-border rounded-card p-6 shadow-card space-y-4">

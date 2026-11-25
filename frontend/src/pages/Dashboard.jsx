@@ -14,6 +14,7 @@ import { StatsCard } from '../components/StatsCard';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState';
 import { CertificateCardSkeleton, Skeleton, StatsCardSkeleton } from '../components/ui/Skeleton';
+import { StorageMeter } from '../components/ui/StorageMeter';
 import { useAuth } from '../hooks/useAuth';
 import { useCertificates } from '../hooks/useCertificates';
 import { formatBytes, formatDisplayDate } from '../utils/formatDate';
@@ -187,13 +188,26 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div className="my-5 space-y-1.5">
-            <p className="text-2xl font-bold text-ink-primary tabular-nums">
-              {formatBytes(stats?.storageUsedBytes || 0)}
-            </p>
-            <p className="text-xs text-ink-muted">
-              Across {stats?.filesAttachedCount ?? 0} attached PDF & image files
-            </p>
+          <div className="my-4 space-y-3">
+            <div>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <p className="text-2xl font-bold text-ink-primary tabular-nums">
+                  {formatBytes(stats?.storageUsedBytes || 0)}
+                </p>
+                <span className="text-xs text-ink-muted tabular-nums">
+                  used of {formatBytes(stats?.storageQuotaBytes || 1024 * 1024 * 1024)}
+                </span>
+              </div>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Across {stats?.filesAttachedCount ?? 0} attached PDF & image files
+              </p>
+            </div>
+
+            <StorageMeter
+              usedBytes={stats?.storageUsedBytes || 0}
+              quotaBytes={stats?.storageQuotaBytes}
+              remainingBytes={stats?.storageRemainingBytes}
+            />
           </div>
 
           <Link

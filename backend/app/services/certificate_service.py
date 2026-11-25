@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from pymongo import ASCENDING, DESCENDING
 from pymongo.database import Database
 
+from app.config import get_settings
 from app.models.certificate import ALLOWED_CATEGORIES, serialize_certificate, utc_now_iso
 from app.schemas.certificate import CertificateCreate, CertificateUpdate
 from app.services.storage_service import StorageError, delete_certificate_file
@@ -28,6 +29,8 @@ def compute_stats(db: Database, owner_id: str) -> dict[str, Any]:
     favorites = sum(1 for d in docs if d.get("is_favorite"))
     files_attached = sum(1 for d in docs if d.get("storage_path"))
     storage_used = sum(int(d.get("file_size") or 0) for d in docs)
+    storage_quota = get_settings().storage_quota_bytes
+    storage_remaining = max(0, storage_quota - storage_used)
 
     by_category = []
     for cat in ALLOWED_CATEGORIES:
@@ -45,6 +48,8 @@ def compute_stats(db: Database, owner_id: str) -> dict[str, Any]:
         "hackathons": next((c["count"] for c in by_category if c["category"] == "Hackathons"), 0),
         "files_attached_count": files_attached,
         "storage_used_bytes": storage_used,
+        "storage_quota_bytes": storage_quota,
+        "storage_remaining_bytes": storage_remaining,
         "by_category": by_category,
         "issuers": issuers,
     }

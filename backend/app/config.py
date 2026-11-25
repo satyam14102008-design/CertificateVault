@@ -32,10 +32,15 @@ class Settings(BaseSettings):
     frontend_url: str = Field(default="http://localhost:5173", alias="FRONTEND_URL")
     backend_url: str = Field(default="http://localhost:8000", alias="BACKEND_URL")
     max_upload_size_mb: int = Field(default=10, ge=1, le=50, alias="MAX_UPLOAD_SIZE_MB")
+    storage_quota_mb: int = Field(default=1024, ge=1, le=1048576, alias="STORAGE_QUOTA_MB")
 
     @property
     def max_upload_size_bytes(self) -> int:
         return self.max_upload_size_mb * 1024 * 1024
+
+    @property
+    def storage_quota_bytes(self) -> int:
+        return self.storage_quota_mb * 1024 * 1024
 
     def missing_db_fields(self) -> list[str]:
         missing = []
