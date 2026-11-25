@@ -28,6 +28,7 @@ export const CertificateRow = memo(function CertificateRow({
 }) {
   const isPdf = certificate.file?.type === 'application/pdf';
   const isImage = Boolean(certificate.file?.type?.startsWith('image/'));
+  const hasPreviewableFile = isImage || isPdf;
   const hasFile = Boolean(certificate.file);
   const hasUrl = Boolean(certificate.verificationUrl);
 
@@ -35,7 +36,7 @@ export const CertificateRow = memo(function CertificateRow({
 
   useEffect(() => {
     let active = true;
-    if (!isImage) {
+    if (!hasPreviewableFile) {
       setThumbUrl(null);
       return undefined;
     }
@@ -51,7 +52,7 @@ export const CertificateRow = memo(function CertificateRow({
     return () => {
       active = false;
     };
-  }, [certificate, isImage]);
+  }, [certificate, hasPreviewableFile]);
 
   const menuItems = [
     {
@@ -101,7 +102,7 @@ export const CertificateRow = memo(function CertificateRow({
           aria-label={`Quick preview ${certificate.title}`}
           className="w-16 h-12 rounded-control border border-border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center"
         >
-          {isImage && thumbUrl ? (
+          {thumbUrl ? (
             <img
               src={thumbUrl}
               alt={`${certificate.title} thumbnail`}

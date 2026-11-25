@@ -1,4 +1,5 @@
 import { apiFetchBlob, apiRequest } from './api';
+import { renderPdfFirstPageUrl } from '../utils/pdfThumbnail';
 
 const VIEW_MODE_KEY = 'cv_view_mode_v1';
 const previewUrlCache = new Map();
@@ -187,7 +188,11 @@ export async function toggleFavorite(certificate) {
 }
 
 export async function getCachedImageThumbnailUrl(certificate) {
-  if (!certificate?.file?.type?.startsWith('image/')) return null;
+  const mime = certificate?.file?.type || '';
+  const isImage = mime.startsWith('image/');
+  const isPdf = mime === 'application/pdf';
+  if (!isImage && !isPdf) return null;
+
   const key = getCacheKey(certificate);
   if (previewUrlCache.has(key)) {
     return previewUrlCache.get(key);
@@ -197,9 +202,13 @@ export async function getCachedImageThumbnailUrl(certificate) {
   }
 
   const req = apiFetchBlob(`/api/files/${encodeURIComponent(certificate.id)}/preview`)
-    .then(({ blob }) => {
-      const objectUrl = URL.createObjectURL(blob);
-      previewUrlCache.set(key, objectUrl);
+    .then(async ({ blob }) => {
+      const objectUrl = isPdf
+        ? await renderPdfFirstPageUrl(blob)
+        : URL.createObjectURL(blob);
+      if (objectUrl) {
+        previewUrlCache.set(key, objectUrl);
+      }
       return objectUrl;
     })
     .finally(() => {

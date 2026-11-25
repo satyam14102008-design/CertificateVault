@@ -14,7 +14,6 @@
     december: '12',
   };
 
-  // normalizedUrl -> { id, has_file }
   let savedItemsMap = new Map();
 
   function parseCourseraDate(text) {
@@ -41,9 +40,8 @@
   function findCardContainer(viewLink) {
     let node = viewLink.parentElement;
     for (let i = 0; i < 6 && node; i += 1) {
-      const hasImage = node.querySelector('img');
-      const textLen = (node.innerText || '').trim().length;
-      if (hasImage && textLen > 20 && textLen < 800) {
+      const text = (node.innerText || '').trim();
+      if (text.length > 25 && text.length < 900 && (node.querySelector('h2, h3, h4') || text.includes('Completed'))) {
         return node;
       }
       node = node.parentElement;
@@ -63,24 +61,13 @@
       const w = img.naturalWidth || img.clientWidth || 0;
       const h = img.naturalHeight || img.clientHeight || 0;
       const area = w * h;
-      if (w >= 100 && h >= 60 && area > bestArea) {
+      // Ignore small university/partner logos (~40x40) so we never save a tiny logo as the certificate
+      if (w >= 160 && h >= 100 && area > bestArea) {
         bestArea = area;
         bestSrc = src;
       }
     }
-
-    if (bestSrc) return bestSrc;
-
-    // Fallback: check inline CSS background-image
-    const styledNodes = Array.from(container.querySelectorAll('[style*="background-image"]'));
-    for (const el of styledNodes) {
-      const bg = el.style.backgroundImage || '';
-      const m = bg.match(/url\(["']?([^"')]+)["']?\)/i);
-      if (m && m[1] && (el.clientWidth >= 100 || el.clientHeight >= 60)) {
-        return m[1];
-      }
-    }
-    return '';
+    return bestSrc;
   }
 
   function extractCourseraCardData(viewLink) {
@@ -95,7 +82,7 @@
     let title = headingEl?.textContent?.trim() || '';
 
     const ignoredPatterns =
-      /^(Add to LinkedIn|View certificate|Completed |Issued |Course|Specialization|Professional Certificate|\+ Save to Vault|\+ Attach Image|In Vault|Saved)/i;
+      /^(Add to LinkedIn|View certificate|Completed |Issued |Course|Specialization|Professional Certificate|\+ Save to Vault|\+ Attach Image|In Vault|Saved|Image Attached)/i;
     const usefulLines = rawText.filter((line) => !ignoredPatterns.test(line));
 
     if (!title && usefulLines.length > 0) {
@@ -172,6 +159,71 @@
     }
   }
 
+  async function handleCardButtonClick(btn, link) {
+    const certUrl = normalizeUrl(link.href);
+    const { payload, imageUrl } = extractCourseraCardData(link);
+    const existing = savedItemsMap.get(certUrl);
+    updateButtonState(btn, 'loading', existing ? 'Attaching...' : 'Saving...');
+
+    try {
+      if (existing && !existing.has_file) {
+        const resp = await chrome.runtime.sendMessage({
+          type: 'CV_ATTACH_IMAGE',
+          certificateId: existing.id,
+          certificateUrl: certUrl,
+          imageUrl,
+          title: payload.title,
+        });
+        if (resp?.ok) {
+          savedItemsMap.set(certUrl, { id: existing.id, has_file: true });
+          updateButtonState(btn, 'saved', 'Image Attached ✓');
+          refreshBatchSyncButton();
+          return true;
+        }
+        const msg =
+          resp?.status === 401
+            ? 'Sign in via extension icon'
+            : resp?.error || 'Attach failed';
+        updateButtonState(btn, 'error', msg);
+        if (resp?.status !== 401) {
+          setTimeout(() => applySavedStateToButton(btn, certUrl), 3000);
+        }
+        return false;
+      }
+
+      const resp = await chrome.runtime.sendMessage({
+        type: 'CV_QUICK_SAVE',
+        payload,
+        imageUrl,
+      });
+      if (resp?.ok) {
+        savedItemsMap.set(certUrl, {
+          id: resp.certificate?.id,
+          has_file: Boolean(resp.attachedImage),
+        });
+        updateButtonState(
+          btn,
+          'saved',
+          resp.attachedImage ? 'Saved + Image ✓' : 'Saved ✓'
+        );
+        refreshBatchSyncButton();
+        return true;
+      }
+      const msg =
+        resp?.status === 401
+          ? 'Sign in via extension icon'
+          : resp?.error || 'Save failed';
+      updateButtonState(btn, 'error', msg);
+      if (resp?.status !== 401) {
+        setTimeout(() => applySavedStateToButton(btn, certUrl), 3000);
+      }
+      return false;
+    } catch {
+      updateButtonState(btn, 'error', 'Retry');
+      return false;
+    }
+  }
+
   function injectCourseraListButtons() {
     const links = Array.from(document.querySelectorAll('a')).filter((a) => {
       const text = (a.textContent || '').trim().toLowerCase();
@@ -194,66 +246,66 @@
       btn.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
-
-        const { payload, imageUrl } = extractCourseraCardData(link);
-        const existing = savedItemsMap.get(certUrl);
-        updateButtonState(btn, 'loading', existing ? 'Attaching...' : 'Saving...');
-
-        try {
-          if (existing && !existing.has_file) {
-            const resp = await chrome.runtime.sendMessage({
-              type: 'CV_ATTACH_IMAGE',
-              certificateId: existing.id,
-              imageUrl,
-              title: payload.title,
-            });
-            if (resp?.ok) {
-              savedItemsMap.set(certUrl, { id: existing.id, has_file: true });
-              updateButtonState(btn, 'saved', 'Image Attached ✓');
-            } else {
-              const msg =
-                resp?.status === 401
-                  ? 'Sign in via extension icon'
-                  : resp?.error || 'Attach failed';
-              updateButtonState(btn, 'error', msg);
-              if (resp?.status !== 401) {
-                setTimeout(() => applySavedStateToButton(btn, certUrl), 3000);
-              }
-            }
-            return;
-          }
-
-          const resp = await chrome.runtime.sendMessage({
-            type: 'CV_QUICK_SAVE',
-            payload,
-            imageUrl,
-          });
-          if (resp?.ok) {
-            savedItemsMap.set(certUrl, {
-              id: resp.certificate?.id,
-              has_file: Boolean(resp.attachedImage),
-            });
-            updateButtonState(
-              btn,
-              'saved',
-              resp.attachedImage ? 'Saved + Image ✓' : 'Saved ✓'
-            );
-          } else {
-            const msg =
-              resp?.status === 401
-                ? 'Sign in via extension icon'
-                : resp?.error || 'Save failed';
-            updateButtonState(btn, 'error', msg);
-            if (resp?.status !== 401) {
-              setTimeout(() => applySavedStateToButton(btn, certUrl), 3000);
-            }
-          }
-        } catch {
-          updateButtonState(btn, 'error', 'Retry');
-        }
+        await handleCardButtonClick(btn, link);
       });
 
       link.insertAdjacentElement('afterend', btn);
+    }
+  }
+
+  function refreshBatchSyncButton() {
+    if (isSingleCertificatePage()) return;
+    const missingBtns = Array.from(document.querySelectorAll('.cv-inline-btn')).filter((btn) => {
+      const url = btn.dataset.cvUrl;
+      const item = url ? savedItemsMap.get(url) : null;
+      return item && !item.has_file && !btn.disabled;
+    });
+
+    let wrap = document.querySelector('.cv-batch-wrap');
+    if (missingBtns.length === 0) {
+      wrap?.remove();
+      return;
+    }
+
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'cv-floating-wrap cv-batch-wrap';
+
+      const batchBtn = document.createElement('button');
+      batchBtn.type = 'button';
+      batchBtn.className = 'cv-floating-btn';
+      batchBtn.addEventListener('click', async () => {
+        const targets = Array.from(document.querySelectorAll('.cv-inline-btn')).filter((b) => {
+          const item = savedItemsMap.get(b.dataset.cvUrl);
+          return item && !item.has_file && !b.disabled;
+        });
+        batchBtn.disabled = true;
+        let done = 0;
+        for (const targetBtn of targets) {
+          done += 1;
+          batchBtn.textContent = `Attaching images (${done}/${targets.length})...`;
+          targetBtn.click();
+          await new Promise((r) => setTimeout(r, 450));
+        }
+        batchBtn.disabled = false;
+        refreshBatchSyncButton();
+      });
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'cv-floating-close';
+      closeBtn.textContent = '×';
+      closeBtn.setAttribute('aria-label', 'Dismiss batch attach button');
+      closeBtn.addEventListener('click', () => wrap.remove());
+
+      wrap.appendChild(batchBtn);
+      wrap.appendChild(closeBtn);
+      document.body.appendChild(wrap);
+    }
+
+    const btnEl = wrap.querySelector('.cv-floating-btn');
+    if (btnEl && !btnEl.disabled) {
+      btnEl.textContent = `+ Attach ${missingBtns.length} Missing Images`;
     }
   }
 
@@ -264,6 +316,7 @@
         applySavedStateToButton(btn, url);
       }
     });
+    refreshBatchSyncButton();
   }
 
   function inferPageMetadata() {
@@ -316,7 +369,9 @@
   }
 
   function injectFloatingSaveButton() {
-    if (!isSingleCertificatePage() || document.querySelector('.cv-floating-wrap')) return;
+    if (!isSingleCertificatePage() || document.querySelector('.cv-floating-wrap:not(.cv-batch-wrap)')) {
+      return;
+    }
 
     const currentUrl = normalizeUrl(window.location.href);
     const wrap = document.createElement('div');
@@ -349,6 +404,7 @@
           const resp = await chrome.runtime.sendMessage({
             type: 'CV_ATTACH_IMAGE',
             certificateId: currentExisting.id,
+            certificateUrl: currentUrl,
             imageUrl,
             title: payload.title,
           });

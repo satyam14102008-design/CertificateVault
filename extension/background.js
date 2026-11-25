@@ -19,12 +19,11 @@ async function fetchImageAsPngFile(imageUrl, title) {
     const resp = await fetch(imageUrl);
     if (!resp.ok) return null;
     const rawBlob = await resp.blob();
-    if (!rawBlob || rawBlob.size < 1000) return null;
+    if (!rawBlob || rawBlob.size < 1500) return null;
 
-    // Decode and re-encode cleanly to PNG so backend magic-byte validation passes regardless of source format (WebP/JPG/PNG)
     if (typeof createImageBitmap === 'function' && typeof OffscreenCanvas === 'function') {
       const bitmap = await createImageBitmap(rawBlob);
-      if (bitmap.width < 100 || bitmap.height < 60) {
+      if (bitmap.width < 150 || bitmap.height < 100) {
         bitmap.close?.();
         return null;
       }
@@ -46,6 +45,81 @@ async function fetchImageAsPngFile(imageUrl, title) {
   } catch {
     return null;
   }
+}
+
+function unescapeHtmlUrl(raw) {
+  return (raw || '')
+    .replace(/&amp;/g, '&')
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\\//g, '/')
+    .trim();
+}
+
+function extractImageUrlFromHtml(html) {
+  if (!html) return '';
+
+  // 1. Direct Coursera generated certificate landing image (highest reliability)
+  const courseraGenerated = html.match(
+    /https:\/\/[^"'\s<>\\]+CERTIFICATE_LANDING_PAGE[^"'\s<>\\]+\.(?:png|jpe?g|webp)/i
+  );
+  if (courseraGenerated?.[0]) {
+    return unescapeHtmlUrl(courseraGenerated[0]);
+  }
+
+  // 2. OpenGraph / Twitter image meta tags (either attribute order)
+  const metaPatterns = [
+    /<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image["']/i,
+    /<meta[^>]+(?:property|name)=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']twitter:image["']/i,
+  ];
+  for (const re of metaPatterns) {
+    const match = html.match(re);
+    if (match?.[1]) {
+      const candidate = unescapeHtmlUrl(match[1]);
+      if (candidate.startsWith('http')) return candidate;
+    }
+  }
+
+  return '';
+}
+
+async function resolveCertificateImageFile({ certificateUrl, cardImageUrl, title }) {
+  // First try explicit large card/page image URL if provided
+  if (cardImageUrl) {
+    const directFile = await fetchImageAsPngFile(cardImageUrl, title);
+    if (directFile) return directFile;
+  }
+
+  // Fallback: fetch the certificate verification/accomplishment page HTML and extract og:image / CERTIFICATE_LANDING_PAGE
+  if (certificateUrl && certificateUrl.startsWith('http')) {
+    try {
+      const pageResp = await fetch(certificateUrl, { credentials: 'include' });
+      if (pageResp.ok) {
+        const html = await pageResp.text();
+        const extractedUrl = extractImageUrlFromHtml(html);
+        if (extractedUrl) {
+          const file = await fetchImageAsPngFile(extractedUrl, title);
+          if (file) return file;
+        }
+      }
+    } catch {
+      // Ignore network/CORS errors on unsupported external hosts
+    }
+
+    // Direct Coursera deterministic fallback if URL ends with /verify/<ID> or /certificate/<ID>
+    const courseraIdMatch = certificateUrl.match(
+      /coursera\.org\/account\/accomplishments\/(?:verify|certificate|specialization|professional-cert)\/([A-Za-z0-9]+)/i
+    );
+    if (courseraIdMatch?.[1]) {
+      const code = courseraIdMatch[1];
+      const fallbackUrl = `https://s3.amazonaws.com/coursera_assets/meta_images/generated/CERTIFICATE_LANDING_PAGE/CERTIFICATE_LANDING_PAGE~${code}/CERTIFICATE_LANDING_PAGE~${code}.jpeg`;
+      const fallbackFile = await fetchImageAsPngFile(fallbackUrl, title);
+      if (fallbackFile) return fallbackFile;
+    }
+  }
+
+  return null;
 }
 
 async function uploadFileToExistingCertificate(certificateId, file) {
@@ -124,7 +198,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'CV_QUICK_SAVE') {
     (async () => {
       try {
-        const file = await fetchImageAsPngFile(message.imageUrl, message.payload?.title);
+        const file = await resolveCertificateImageFile({
+          certificateUrl: message.payload?.certificate_url,
+          cardImageUrl: message.imageUrl,
+          title: message.payload?.title,
+        });
         const created = await saveCertificateFromExtension({
           metadata: message.payload,
           file,
@@ -144,9 +222,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'CV_ATTACH_IMAGE') {
     (async () => {
       try {
-        const file = await fetchImageAsPngFile(message.imageUrl, message.title);
+        const file = await resolveCertificateImageFile({
+          certificateUrl: message.certificateUrl,
+          cardImageUrl: message.imageUrl,
+          title: message.title,
+        });
         if (!file) {
-          sendResponse({ ok: false, error: 'Could not read certificate image from this card.' });
+          sendResponse({
+            ok: false,
+            error: 'Could not capture certificate image automatically. Open View certificate and try there.',
+          });
           return;
         }
         const updated = await uploadFileToExistingCertificate(message.certificateId, file);
