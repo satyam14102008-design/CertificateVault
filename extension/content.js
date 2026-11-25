@@ -14,7 +14,8 @@
     december: '12',
   };
 
-  let savedUrlSet = new Set();
+  // normalizedUrl -> { id, has_file }
+  let savedItemsMap = new Map();
 
   function parseCourseraDate(text) {
     const match = (text || '').match(
@@ -25,7 +26,6 @@
     const year = match[2];
     const candidate = `${year}-${month}-01`;
     const today = new Date().toISOString().slice(0, 10);
-    // Backend rejects future dates; if candidate month matches/exceeds current month, clamp to today
     return candidate > today ? today : candidate;
   }
 
@@ -38,29 +38,70 @@
     }
   }
 
-  function extractCourseraCardData(viewLink) {
-    const certificateUrl = normalizeUrl(viewLink.href);
+  function findCardContainer(viewLink) {
+    let node = viewLink.parentElement;
+    for (let i = 0; i < 6 && node; i += 1) {
+      const hasImage = node.querySelector('img');
+      const textLen = (node.innerText || '').trim().length;
+      if (hasImage && textLen > 20 && textLen < 800) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return viewLink.closest('li, article, [data-testid*="card"]') || viewLink.parentElement;
+  }
 
-    // Walk up to find the containing card element
-    let card = viewLink.closest('li, article, [data-testid*="card"], [class*="card"], [class*="Card"]');
-    if (!card) {
-      card = viewLink.parentElement?.parentElement?.parentElement || viewLink.parentElement;
+  function findLargestImageUrl(container) {
+    if (!container) return '';
+    const imgs = Array.from(container.querySelectorAll('img'));
+    let bestSrc = '';
+    let bestArea = 0;
+
+    for (const img of imgs) {
+      const src = img.currentSrc || img.src || '';
+      if (!src) continue;
+      const w = img.naturalWidth || img.clientWidth || 0;
+      const h = img.naturalHeight || img.clientHeight || 0;
+      const area = w * h;
+      if (w >= 100 && h >= 60 && area > bestArea) {
+        bestArea = area;
+        bestSrc = src;
+      }
     }
 
-    const rawText = (card?.innerText || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    if (bestSrc) return bestSrc;
 
-    // Try explicit heading elements first
+    // Fallback: check inline CSS background-image
+    const styledNodes = Array.from(container.querySelectorAll('[style*="background-image"]'));
+    for (const el of styledNodes) {
+      const bg = el.style.backgroundImage || '';
+      const m = bg.match(/url\(["']?([^"')]+)["']?\)/i);
+      if (m && m[1] && (el.clientWidth >= 100 || el.clientHeight >= 60)) {
+        return m[1];
+      }
+    }
+    return '';
+  }
+
+  function extractCourseraCardData(viewLink) {
+    const certificateUrl = normalizeUrl(viewLink.href);
+    const card = findCardContainer(viewLink);
+    const rawText = (card?.innerText || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     const headingEl = card?.querySelector('h1, h2, h3, h4, [data-testid*="title"], [class*="title"]');
     let title = headingEl?.textContent?.trim() || '';
 
-    const ignoredPatterns = /^(Add to LinkedIn|View certificate|Completed |Issued |Course|Specialization|Professional Certificate|Save to Vault|In Vault)/i;
+    const ignoredPatterns =
+      /^(Add to LinkedIn|View certificate|Completed |Issued |Course|Specialization|Professional Certificate|\+ Save to Vault|\+ Attach Image|In Vault|Saved)/i;
     const usefulLines = rawText.filter((line) => !ignoredPatterns.test(line));
 
     if (!title && usefulLines.length > 0) {
       title = usefulLines[0];
     }
 
-    // Issuer is typically the line right after the title or right before "Completed ..."
     let issuer = 'Coursera';
     const titleIdx = usefulLines.findIndex((l) => l === title);
     if (titleIdx !== -1 && usefulLines[titleIdx + 1]) {
@@ -70,23 +111,34 @@
     }
 
     const issueDate = parseCourseraDate(card?.innerText || '');
+    const imageUrl = findLargestImageUrl(card);
 
     return {
-      title: (title || 'Coursera Certificate').slice(0, 160),
-      issuer: issuer.slice(0, 120),
-      category: 'Courses',
-      issue_date: issueDate,
-      certificate_url: certificateUrl,
-      description: '',
-      is_favorite: false,
+      payload: {
+        title: (title || 'Coursera Certificate').slice(0, 160),
+        issuer: issuer.slice(0, 120),
+        category: 'Courses',
+        issue_date: issueDate,
+        certificate_url: certificateUrl,
+        description: '',
+        is_favorite: false,
+      },
+      imageUrl,
     };
   }
 
   async function syncSavedUrls() {
     try {
       const resp = await chrome.runtime.sendMessage({ type: 'CV_GET_SAVED_URLS' });
-      if (resp?.ok && Array.isArray(resp.urls)) {
-        savedUrlSet = new Set(resp.urls.map(normalizeUrl));
+      if (resp?.ok && Array.isArray(resp.items)) {
+        const nextMap = new Map();
+        for (const item of resp.items) {
+          nextMap.set(normalizeUrl(item.certificate_url), {
+            id: item.id,
+            has_file: Boolean(item.has_file),
+          });
+        }
+        savedItemsMap = nextMap;
       }
     } catch {
       // Ignore if service worker is waking up
@@ -109,6 +161,17 @@
     btn.textContent = label;
   }
 
+  function applySavedStateToButton(btn, certUrl) {
+    const existing = savedItemsMap.get(certUrl);
+    if (!existing) {
+      updateButtonState(btn, 'idle', '+ Save to Vault');
+    } else if (!existing.has_file) {
+      updateButtonState(btn, 'idle', '+ Attach Image');
+    } else {
+      updateButtonState(btn, 'saved', 'In Vault ✓');
+    }
+  }
+
   function injectCourseraListButtons() {
     const links = Array.from(document.querySelectorAll('a')).filter((a) => {
       const text = (a.textContent || '').trim().toLowerCase();
@@ -121,41 +184,68 @@
       if (!parent || parent.querySelector('.cv-inline-btn')) continue;
 
       const certUrl = normalizeUrl(link.href);
-      const isAlreadySaved = savedUrlSet.has(certUrl);
-
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'cv-inline-btn';
       btn.dataset.cvUrl = certUrl;
 
-      if (isAlreadySaved) {
-        updateButtonState(btn, 'saved', 'In Vault ✓');
-      } else {
-        updateButtonState(btn, 'idle', '+ Save to Vault');
-      }
+      applySavedStateToButton(btn, certUrl);
 
       btn.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
 
-        const payload = extractCourseraCardData(link);
-        updateButtonState(btn, 'loading', 'Saving...');
+        const { payload, imageUrl } = extractCourseraCardData(link);
+        const existing = savedItemsMap.get(certUrl);
+        updateButtonState(btn, 'loading', existing ? 'Attaching...' : 'Saving...');
 
         try {
+          if (existing && !existing.has_file) {
+            const resp = await chrome.runtime.sendMessage({
+              type: 'CV_ATTACH_IMAGE',
+              certificateId: existing.id,
+              imageUrl,
+              title: payload.title,
+            });
+            if (resp?.ok) {
+              savedItemsMap.set(certUrl, { id: existing.id, has_file: true });
+              updateButtonState(btn, 'saved', 'Image Attached ✓');
+            } else {
+              const msg =
+                resp?.status === 401
+                  ? 'Sign in via extension icon'
+                  : resp?.error || 'Attach failed';
+              updateButtonState(btn, 'error', msg);
+              if (resp?.status !== 401) {
+                setTimeout(() => applySavedStateToButton(btn, certUrl), 3000);
+              }
+            }
+            return;
+          }
+
           const resp = await chrome.runtime.sendMessage({
             type: 'CV_QUICK_SAVE',
             payload,
+            imageUrl,
           });
           if (resp?.ok) {
-            savedUrlSet.add(certUrl);
-            updateButtonState(btn, 'saved', 'Saved ✓');
+            savedItemsMap.set(certUrl, {
+              id: resp.certificate?.id,
+              has_file: Boolean(resp.attachedImage),
+            });
+            updateButtonState(
+              btn,
+              'saved',
+              resp.attachedImage ? 'Saved + Image ✓' : 'Saved ✓'
+            );
           } else {
-            const msg = resp?.status === 401
-              ? 'Sign in via extension icon'
-              : resp?.error || 'Save failed';
+            const msg =
+              resp?.status === 401
+                ? 'Sign in via extension icon'
+                : resp?.error || 'Save failed';
             updateButtonState(btn, 'error', msg);
             if (resp?.status !== 401) {
-              setTimeout(() => updateButtonState(btn, 'idle', '+ Save to Vault'), 3000);
+              setTimeout(() => applySavedStateToButton(btn, certUrl), 3000);
             }
           }
         } catch {
@@ -170,8 +260,8 @@
   function refreshSavedButtonBadges() {
     document.querySelectorAll('.cv-inline-btn').forEach((btn) => {
       const url = btn.dataset.cvUrl;
-      if (url && savedUrlSet.has(url) && !btn.disabled) {
-        updateButtonState(btn, 'saved', 'In Vault ✓');
+      if (url && !btn.disabled && btn.textContent !== 'Saving...' && btn.textContent !== 'Attaching...') {
+        applySavedStateToButton(btn, url);
       }
     });
   }
@@ -195,14 +285,19 @@
       .trim()
       .slice(0, 160);
 
+    const imageUrl = findLargestImageUrl(document.querySelector('main') || document.body);
+
     return {
-      title: cleanTitle || 'Verified Certificate',
-      issuer,
-      category: 'Courses',
-      issue_date: '',
-      certificate_url: normalizeUrl(window.location.href),
-      description: '',
-      is_favorite: false,
+      payload: {
+        title: cleanTitle || 'Verified Certificate',
+        issuer,
+        category: 'Courses',
+        issue_date: '',
+        certificate_url: normalizeUrl(window.location.href),
+        description: '',
+        is_favorite: false,
+      },
+      imageUrl,
     };
   }
 
@@ -230,29 +325,62 @@
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'cv-floating-btn';
-    if (savedUrlSet.has(currentUrl)) {
+
+    const existing = savedItemsMap.get(currentUrl);
+    if (existing?.has_file) {
       btn.classList.add('cv-floating-btn-saved');
       btn.textContent = 'In CertificateVault ✓';
       btn.disabled = true;
+    } else if (existing) {
+      btn.textContent = '+ Attach Image to Vault';
     } else {
       btn.textContent = '+ Save to CertificateVault';
     }
 
     btn.addEventListener('click', async () => {
-      const payload = inferPageMetadata();
+      const { payload, imageUrl } = inferPageMetadata();
+      const currentExisting = savedItemsMap.get(currentUrl);
       btn.disabled = true;
-      btn.textContent = 'Saving to Vault...';
+      btn.textContent = currentExisting ? 'Attaching Image...' : 'Saving to Vault...';
       btn.classList.remove('cv-floating-btn-error');
 
       try {
+        if (currentExisting && !currentExisting.has_file) {
+          const resp = await chrome.runtime.sendMessage({
+            type: 'CV_ATTACH_IMAGE',
+            certificateId: currentExisting.id,
+            imageUrl,
+            title: payload.title,
+          });
+          if (resp?.ok) {
+            savedItemsMap.set(currentUrl, { id: currentExisting.id, has_file: true });
+            btn.classList.add('cv-floating-btn-saved');
+            btn.textContent = 'Image Attached ✓';
+          } else {
+            btn.disabled = false;
+            btn.classList.add('cv-floating-btn-error');
+            btn.textContent =
+              resp?.status === 401
+                ? 'Sign in via CertificateVault icon first'
+                : resp?.error || 'Attach failed — click to retry';
+          }
+          return;
+        }
+
         const resp = await chrome.runtime.sendMessage({
           type: 'CV_QUICK_SAVE',
           payload,
+          imageUrl,
         });
         if (resp?.ok) {
-          savedUrlSet.add(currentUrl);
+          savedItemsMap.set(currentUrl, {
+            id: resp.certificate?.id,
+            has_file: Boolean(resp.attachedImage),
+          });
           btn.classList.add('cv-floating-btn-saved');
-          btn.textContent = 'Saved to CertificateVault ✓';
+          btn.textContent = resp.attachedImage
+            ? 'Saved + Image ✓'
+            : 'Saved to CertificateVault ✓';
         } else {
           btn.disabled = false;
           btn.classList.add('cv-floating-btn-error');

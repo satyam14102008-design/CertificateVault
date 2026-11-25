@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -13,6 +13,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-react';
+import { getCachedImageThumbnailUrl } from '../services/certificateService';
 import { formatBytes, formatDisplayDate } from '../utils/formatDate';
 import { Badge } from './ui/Badge';
 import { Dropdown } from './ui/Dropdown';
@@ -27,8 +28,31 @@ export const CertificateCard = memo(function CertificateCard({
   onDownload,
 }) {
   const isPdf = certificate.file?.type === 'application/pdf';
+  const isImage = Boolean(certificate.file?.type?.startsWith('image/'));
   const hasFile = Boolean(certificate.file);
   const hasUrl = Boolean(certificate.verificationUrl);
+
+  const [thumbUrl, setThumbUrl] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!isImage) {
+      setThumbUrl(null);
+      return undefined;
+    }
+
+    getCachedImageThumbnailUrl(certificate)
+      .then((url) => {
+        if (active) setThumbUrl(url);
+      })
+      .catch(() => {
+        if (active) setThumbUrl(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [certificate, isImage]);
 
   const menuItems = [
     {
@@ -78,7 +102,14 @@ export const CertificateCard = memo(function CertificateCard({
           aria-label={`Quick preview ${certificate.title}`}
           className="w-full h-full block text-left"
         >
-          {hasFile ? (
+          {isImage && thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt={`${certificate.title} preview`}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            />
+          ) : hasFile ? (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 text-center transition-transform duration-200 group-hover:scale-[1.02]">
               <div
                 className={clsx(
@@ -139,9 +170,11 @@ export const CertificateCard = memo(function CertificateCard({
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-2">
           <Badge category={certificate.category}>{certificate.category}</Badge>
-          <span className="text-xs text-ink-muted tabular-nums">
-            {formatDisplayDate(certificate.issueDate)}
-          </span>
+          {certificate.issueDate && (
+            <span className="text-xs text-ink-muted tabular-nums">
+              {formatDisplayDate(certificate.issueDate)}
+            </span>
+          )}
         </div>
 
         <Link
@@ -164,7 +197,7 @@ export const CertificateCard = memo(function CertificateCard({
               <span>View</span>
             </Link>
 
-            {hasFile ? (
+            {hasFile && (
               <button
                 type="button"
                 onClick={() => onDownload?.(certificate)}
@@ -174,7 +207,9 @@ export const CertificateCard = memo(function CertificateCard({
                 <Download className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Download</span>
               </button>
-            ) : hasUrl ? (
+            )}
+
+            {hasUrl && (
               <a
                 href={certificate.verificationUrl}
                 target="_blank"
@@ -184,7 +219,7 @@ export const CertificateCard = memo(function CertificateCard({
                 <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Verify</span>
               </a>
-            ) : null}
+            )}
           </div>
 
           <Dropdown

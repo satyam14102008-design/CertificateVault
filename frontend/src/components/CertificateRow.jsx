@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -13,6 +13,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-react';
+import { getCachedImageThumbnailUrl } from '../services/certificateService';
 import { formatDisplayDate } from '../utils/formatDate';
 import { Badge } from './ui/Badge';
 import { Dropdown } from './ui/Dropdown';
@@ -26,8 +27,31 @@ export const CertificateRow = memo(function CertificateRow({
   onDownload,
 }) {
   const isPdf = certificate.file?.type === 'application/pdf';
+  const isImage = Boolean(certificate.file?.type?.startsWith('image/'));
   const hasFile = Boolean(certificate.file);
   const hasUrl = Boolean(certificate.verificationUrl);
+
+  const [thumbUrl, setThumbUrl] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!isImage) {
+      setThumbUrl(null);
+      return undefined;
+    }
+
+    getCachedImageThumbnailUrl(certificate)
+      .then((url) => {
+        if (active) setThumbUrl(url);
+      })
+      .catch(() => {
+        if (active) setThumbUrl(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [certificate, isImage]);
 
   const menuItems = [
     {
@@ -75,9 +99,16 @@ export const CertificateRow = memo(function CertificateRow({
           type="button"
           onClick={() => onQuickPreview?.(certificate)}
           aria-label={`Quick preview ${certificate.title}`}
-          className="w-14 h-11 rounded-control border border-border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center"
+          className="w-16 h-12 rounded-control border border-border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center"
         >
-          {hasFile ? (
+          {isImage && thumbUrl ? (
+            <img
+              src={thumbUrl}
+              alt={`${certificate.title} thumbnail`}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+          ) : hasFile ? (
             isPdf ? (
               <FileText className="w-5 h-5 text-semantic-danger" aria-hidden="true" />
             ) : (

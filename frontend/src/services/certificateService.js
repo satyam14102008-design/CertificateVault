@@ -1,6 +1,21 @@
 import { apiFetchBlob, apiRequest } from './api';
 
 const VIEW_MODE_KEY = 'cv_view_mode_v1';
+const previewUrlCache = new Map();
+const inflightPreviewRequests = new Map();
+
+function getCacheKey(certificate) {
+  return `${certificate.id}:${certificate.file?.storagePath || ''}:${certificate.updatedAt || ''}`;
+}
+
+export function invalidatePreviewCache(certificateId) {
+  for (const [key, url] of previewUrlCache.entries()) {
+    if (key.startsWith(`${certificateId}:`)) {
+      URL.revokeObjectURL(url);
+      previewUrlCache.delete(key);
+    }
+  }
+}
 
 function normalizeCertificate(raw) {
   if (!raw) return null;
@@ -82,6 +97,7 @@ export async function uploadCertificateFile(certificateId, file, onProgress) {
 }
 
 export async function deleteAttachedFile(certificateId) {
+  invalidatePreviewCache(certificateId);
   const raw = await apiRequest(`/api/files/${encodeURIComponent(certificateId)}`, {
     method: 'DELETE',
   });
@@ -145,6 +161,7 @@ export async function updateCertificate(id, data, newFile = null, onProgress) {
   }
 
   if (newFile) {
+    invalidatePreviewCache(id);
     updated = await uploadCertificateFile(id, newFile, onProgress);
   } else if (onProgress) {
     onProgress(100);
@@ -154,6 +171,7 @@ export async function updateCertificate(id, data, newFile = null, onProgress) {
 }
 
 export async function deleteCertificate(id) {
+  invalidatePreviewCache(id);
   await apiRequest(`/api/certificates/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
@@ -166,6 +184,30 @@ export async function toggleFavorite(certificate) {
     body: JSON.stringify({ is_favorite: !certificate.isFavorite }),
   });
   return normalizeCertificate(raw);
+}
+
+export async function getCachedImageThumbnailUrl(certificate) {
+  if (!certificate?.file?.type?.startsWith('image/')) return null;
+  const key = getCacheKey(certificate);
+  if (previewUrlCache.has(key)) {
+    return previewUrlCache.get(key);
+  }
+  if (inflightPreviewRequests.has(key)) {
+    return inflightPreviewRequests.get(key);
+  }
+
+  const req = apiFetchBlob(`/api/files/${encodeURIComponent(certificate.id)}/preview`)
+    .then(({ blob }) => {
+      const objectUrl = URL.createObjectURL(blob);
+      previewUrlCache.set(key, objectUrl);
+      return objectUrl;
+    })
+    .finally(() => {
+      inflightPreviewRequests.delete(key);
+    });
+
+  inflightPreviewRequests.set(key, req);
+  return req;
 }
 
 export async function getCertificateFilePreview(certificate) {
