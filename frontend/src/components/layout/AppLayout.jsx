@@ -10,6 +10,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Modal } from '../ui/Modal';
+import { Footer } from './Footer';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { Sidebar } from './Sidebar';
@@ -63,6 +64,8 @@ export function AppLayout() {
         <main className="flex-1 w-full max-w-page mx-auto px-4 py-5 sm:px-6 sm:py-6">
           <Outlet context={{ onRequestDelete: setDeleteTarget }} />
         </main>
+
+        <Footer />
       </div>
 
       {isAuthenticated && (
